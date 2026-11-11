@@ -25,11 +25,10 @@ struct ASTRALISSIMULATION_API FEngineSpec
 	EPropulsionType Type = EPropulsionType::Chemical;
 
 	// Specific impulse (seconds)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "s"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "Seconds"))
 	double Isp_s = 300.0;
 
-	// Maximum thrust (Newtons)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "N"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "Newtons"))
 	double MaxThrust_N = 500.0;
 
 	// Minimum throttle fraction [0, 1]
@@ -37,11 +36,10 @@ struct ASTRALISSIMULATION_API FEngineSpec
 	double MinThrottle = 1.0;
 
 	// Electrical power required during operation (Watts) — relevant for electric propulsion
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "W"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ToolTip = "Electrical power required (Watts)"))
 	double PowerRequired_W = 0.0;
 
-	// Engine dry mass (kg)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "kg"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "Kilograms"))
 	double Mass_kg = 5.0;
 };
 

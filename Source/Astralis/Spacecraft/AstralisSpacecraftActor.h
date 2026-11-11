@@ -19,7 +19,6 @@ public:
 	TObjectPtr<USceneComponent> SpacecraftRoot;
 
 	// Engineering state (SI, double precision — authoritative)
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Engineering")
 	FSpacecraftMassState MassState;
 
 	// Component entries for mass calculation

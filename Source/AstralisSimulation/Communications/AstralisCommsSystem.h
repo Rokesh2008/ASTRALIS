@@ -16,12 +16,12 @@ struct ASTRALISSIMULATION_API FAntennaSpec
 	double Gain_dBi = 6.0;
 
 	// Transmit power (Watts)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "W"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ToolTip = "Transmit power (Watts)"))
 	double TransmitPower_W = 5.0;
 
 	// Operating frequency (Hz)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "Hz"))
-	double Frequency_Hz = 2.2e9; // S-band default
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "Hertz"))
+	double Frequency_Hz = 2.2e9;
 
 	// Beamwidth (degrees)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

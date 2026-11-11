@@ -27,7 +27,7 @@ struct ASTRALISSIMULATION_API FBatterySpec
 	GENERATED_BODY()
 
 	// Capacity in watt-hours
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "Wh"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ToolTip = "Battery capacity (Watt-hours)"))
 	double Capacity_Wh = 100.0;
 
 	// Maximum depth of discharge [0, 1]
@@ -51,7 +51,7 @@ struct ASTRALISSIMULATION_API FPowerLoadEntry
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FName SubsystemID;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "W"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ToolTip = "Current power draw (Watts)"))
 	double CurrentDraw_W = 0.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

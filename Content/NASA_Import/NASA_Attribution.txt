@@ -1,0 +1,35 @@
+ASTRALIS - NASA 3D Resources Attribution
+=========================================
+
+This project uses 3D models and textures from NASA's 3D Resources collection.
+
+Source Repository: https://github.com/nasa/NASA-3D-Resources
+License: NASA Media Usage Guidelines (https://www.nasa.gov/nasa-brand-center/images-and-media/)
+
+Assets Used:
+------------
+
+1. Landsat 8 Spacecraft
+   - File: Landsat8.glb
+   - Source: 3D Models/Landsat 8/Landsat 8.glb
+   - Mission: Earth Observation (launched 2013)
+   - Use: Primary spacecraft model for PROJECT TEMPEST
+   
+2. Earth Texture (A)
+   - File: Earth_A.jpg
+   - Source: Images and Textures/Earth (A)/Earth (A).jpg
+   - Use: Planetary surface texture
+
+Attribution Statement:
+----------------------
+"3D models and textures courtesy of NASA"
+
+Usage Terms:
+-----------
+- NASA content generally in public domain
+- Used for educational/simulation purposes
+- No NASA endorsement implied
+- Models may be modified for game integration
+
+Downloaded: 2026-11-11
+Project: ASTRALIS Space Mission Simulator

@@ -34,6 +34,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Assembly")
 	bool bIsSelected = false;
 
+	// Load mesh and properties from ComponentData
+	UFUNCTION(BlueprintCallable, Category = "Assembly")
+	void ApplyComponentData();
+
 	// Snap position to grid
 	UFUNCTION(BlueprintCallable, Category = "Assembly")
 	FVector SnapToGrid(const FVector& Position_m) const;
@@ -45,4 +49,10 @@ public:
 	// Highlight for selection
 	UFUNCTION(BlueprintCallable, Category = "Assembly")
 	void SetHighlighted(bool bHighlight);
+
+	// Get attachment face positions in SI metres (6 faces of bounding box)
+	TArray<FVector> GetAttachmentFacePositions_SI() const;
+
+	// Get the envelope size in SI metres from component data
+	FVector GetEnvelope_SI() const;
 };

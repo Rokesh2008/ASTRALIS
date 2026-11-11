@@ -103,9 +103,23 @@ void FAstralisSimEngine::UpdateOrbit(double DeltaTime_s)
 
 void FAstralisSimEngine::UpdatePower(double DeltaTime_s)
 {
-	// Determine eclipse state (simplified: check if behind body)
-	const double R = State.Orbital.Position_m.Length();
-	State.Power.bInEclipse = false; // Simplified — full shadow model needed later
+	// Cylindrical shadow eclipse detection
+	// Sun direction assumed along +X (simplification — full ephemeris later)
+	// Spacecraft is in eclipse if it's behind the central body relative to the sun
+	const FVector3d SunDir(1.0, 0.0, 0.0);
+	const FVector3d& Pos = State.Orbital.Position_m;
+	const double DotSun = FVector3d::DotProduct(Pos, SunDir);
+	if (DotSun < 0.0)
+	{
+		// Behind the body — check if within the shadow cylinder
+		const FVector3d Projected = Pos - SunDir * DotSun;
+		const double CrossDist = Projected.Length();
+		State.Power.bInEclipse = (CrossDist < BodyRadius_m);
+	}
+	else
+	{
+		State.Power.bInEclipse = false;
+	}
 
 	// Solar generation
 	const double IncidenceAngle = 0.0; // Simplified — needs attitude integration
@@ -169,12 +183,35 @@ void FAstralisSimEngine::UpdateGNC(double /*DeltaTime_s*/)
 
 void FAstralisSimEngine::UpdateCommunications()
 {
-	const double Range = State.Orbital.Position_m.Length();
+	const FVector3d& Pos = State.Orbital.Position_m;
+	const double R = Pos.Length();
 
-	auto LinkResult = FAstralisCommsSystem::ComputeLinkBudget(
-		Antenna, GroundStation, Range, 10.0);
+	// Ground station visibility: check if spacecraft is above the horizon
+	// for a ground station at a fixed position on Earth's surface.
+	// Simplified: station at (BodyRadius_m, 0, 0) — on the equator at 0 longitude.
+	// Minimum elevation angle: 5 degrees above horizon.
+	const FVector3d StationPos(BodyRadius_m, 0.0, 0.0);
+	const FVector3d ToSC = Pos - StationPos;
+	const double Range = ToSC.Length();
 
-	State.Comms.bGroundStationVisible = true; // Simplified — needs visibility calc
-	State.Comms.LinkMargin_dB = LinkResult.LinkMargin_dB;
-	State.Comms.AchievableDataRate_bps = LinkResult.AchievableDataRate_bps;
+	// Station zenith direction (radially outward)
+	const FVector3d StationZenith = StationPos.GetSafeNormal();
+	// Elevation angle = angle between (ToSC) and the local horizon plane
+	const double CosZenithAngle = FVector3d::DotProduct(ToSC.GetSafeNormal(), StationZenith);
+	// Zenith angle of 90 deg = horizon; we need elevation > 5 deg → zenith < 85 deg
+	const double MinElevation_rad = FMath::DegreesToRadians(5.0);
+	State.Comms.bGroundStationVisible = (CosZenithAngle > FMath::Sin(MinElevation_rad));
+
+	if (State.Comms.bGroundStationVisible)
+	{
+		auto LinkResult = FAstralisCommsSystem::ComputeLinkBudget(
+			Antenna, GroundStation, Range, 10.0);
+		State.Comms.LinkMargin_dB = LinkResult.LinkMargin_dB;
+		State.Comms.AchievableDataRate_bps = LinkResult.AchievableDataRate_bps;
+	}
+	else
+	{
+		State.Comms.LinkMargin_dB = -999.0;
+		State.Comms.AchievableDataRate_bps = 0.0;
+	}
 }

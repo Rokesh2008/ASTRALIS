@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SimCore/AstralisSimState.h"
+#include "AstralisSimulation/SimCore/AstralisSimState.h"
 
 // Two-body orbital propagator using RK4 integration.
 // All calculations in SI units, double precision.

@@ -57,6 +57,7 @@ public:
 	// Get current state (read-only)
 	const FSpacecraftState& GetState() const { return State; }
 	FAstralisSimClock& GetClock() { return Clock; }
+	const FAstralisSimClock& GetClock() const { return Clock; }
 
 	// Pending maneuver
 	void RequestManeuver(const FVector3d& DeltaV_mps);

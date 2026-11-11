@@ -29,13 +29,13 @@ struct ASTRALISDATA_API FPowerSpec
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "W"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ToolTip = "Standby power (Watts)"))
 	double Standby_W = 0.0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "W"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ToolTip = "Average operating power (Watts)"))
 	double Average_W = 0.0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "W"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ToolTip = "Peak power (Watts)"))
 	double Peak_W = 0.0;
 };
 
@@ -44,13 +44,13 @@ struct ASTRALISDATA_API FThermalSpec
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "degC"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "Celsius"))
 	double OperatingMin_C = -40.0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "degC"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "Celsius"))
 	double OperatingMax_C = 60.0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "W"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ToolTip = "Thermal dissipation (Watts)"))
 	double Dissipation_W = 0.0;
 };
 
@@ -59,7 +59,7 @@ struct ASTRALISDATA_API FGeometrySpec
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "m"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Units = "Meters"))
 	FVector Envelope_m = FVector::ZeroVector;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -96,7 +96,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Identity")
 	EComponentCategory Category;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Mass", meta = (Units = "kg"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Mass", meta = (Units = "Kilograms"))
 	double Mass_kg = 0.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Power")
@@ -108,7 +108,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Thermal")
 	FThermalSpec Thermal;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Data", meta = (Units = "Mbps"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Data", meta = (ToolTip = "Data rate (Mbps)"))
 	double DataRate_Mbps = 0.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Cost")
