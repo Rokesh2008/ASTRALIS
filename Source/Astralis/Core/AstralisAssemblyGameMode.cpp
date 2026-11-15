@@ -15,6 +15,9 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "EngineUtils.h"
 #include "DrawDebugHelpers.h"
+#include "Landscape.h"
+#include "LandscapeComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
 // Console command for testing
 static FAutoConsoleCommand LaunchToOrbitCmd(
@@ -63,6 +66,7 @@ void AAstralisAssemblyGameMode::BeginPlay()
 	InitInstrumentCatalog();
 	RecalculateBudget();
 
+	ApplyLandscapeMaterial();
 	SpawnSpacecraft();
 	CreateExampleLaunchVehicle();
 	FocusCameraOnPad();
@@ -345,6 +349,44 @@ void AAstralisAssemblyGameMode::SetLevelEnvironmentVisible(bool bVisible)
 	}
 }
 
+void AAstralisAssemblyGameMode::ApplyLandscapeMaterial()
+{
+	// Create an Earth-like landscape material: green lowlands, brown hills, gray peaks
+	// Uses a simple world-position-Z based color since we have no terrain textures
+	UMaterial* BaseMat = LoadObject<UMaterial>(nullptr,
+		TEXT("/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial"));
+	if (!BaseMat)
+	{
+		BaseMat = LoadObject<UMaterial>(nullptr,
+			TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+	}
+	if (!BaseMat) return;
+
+	for (TActorIterator<ALandscape> It(GetWorld()); It; ++It)
+	{
+		ALandscape* Land = *It;
+
+		UMaterialInstanceDynamic* LandMID = UMaterialInstanceDynamic::Create(BaseMat, this);
+		// Florida coastal green — warm, slightly yellowish green
+		LandMID->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.15f, 0.28f, 0.08f));
+
+		// Apply to every landscape component
+		TArray<ULandscapeComponent*> LandComps;
+		Land->GetComponents<ULandscapeComponent>(LandComps);
+		for (ULandscapeComponent* LC : LandComps)
+		{
+			const int32 NumMats = LC->GetNumMaterials();
+			for (int32 i = 0; i < FMath::Max(1, NumMats); ++i)
+			{
+				LC->SetMaterial(i, LandMID);
+			}
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("Applied Earth landscape material to %s (%d components)"),
+			*Land->GetName(), LandComps.Num());
+	}
+}
+
 void AAstralisAssemblyGameMode::DestroyLaunchVehicle()
 {
 	if (LaunchPadActor)
@@ -516,6 +558,7 @@ void AAstralisAssemblyGameMode::ReturnToAssembly()
 	CurrentPhase = EAstralisGamePhase::Assembly;
 	SmokePuffs.Empty();
 	bWaitingForOrbitTransition = false;
+	bLandscapeHiddenForLaunch = false;
 
 	// Show assembly actors
 	if (ActiveSpacecraft)
@@ -702,20 +745,20 @@ void AAstralisAssemblyGameMode::CreateExampleLaunchVehicle()
 			MakePart(TEXT("PerimeterE"), PadCube, FVector(2200.0, 0, -70.0), FVector(2.0, 50.0, 0.15), FRotator::ZeroRotator, ConcreteMat);
 			MakePart(TEXT("PerimeterW"), PadCube, FVector(-2200.0, 0, -70.0), FVector(2.0, 50.0, 0.15), FRotator::ZeroRotator, ConcreteMat);
 
-			// Transporter/Erector (strongback) — taller to match rocket
-			MakePart(TEXT("Strongback"), PadCube, FVector(-250.0, 0, 2200.0), FVector(0.6, 0.6, 45.0), FRotator::ZeroRotator, MetalMat);
-			// Strongback cradle arms
-			MakePart(TEXT("CradleUpper"), PadCube, FVector(-125.0, 0, 3500.0), FVector(2.5, 0.2, 0.2), FRotator::ZeroRotator, MetalMat);
-			MakePart(TEXT("CradleLower"), PadCube, FVector(-125.0, 0, 1500.0), FVector(2.5, 0.2, 0.2), FRotator::ZeroRotator, MetalMat);
+			// Transporter/Erector (strongback) — offset enough to not clip rocket
+			MakePart(TEXT("Strongback"), PadCube, FVector(-450.0, 0, 2200.0), FVector(0.6, 0.6, 45.0), FRotator::ZeroRotator, MetalMat);
+			// Strongback cradle arms — stop short of the rocket body
+			MakePart(TEXT("CradleUpper"), PadCube, FVector(-350.0, 0, 3500.0), FVector(1.5, 0.2, 0.2), FRotator::ZeroRotator, MetalMat);
+			MakePart(TEXT("CradleLower"), PadCube, FVector(-350.0, 0, 1500.0), FVector(1.5, 0.2, 0.2), FRotator::ZeroRotator, MetalMat);
 
-			// Service tower (Fixed Service Structure)
-			MakePart(TEXT("ServiceTower"), PadCylinder, FVector(-700.0, 0, 2800.0), FVector(2.5, 2.5, 56.0), FRotator::ZeroRotator, MetalMat);
-			MakePart(TEXT("CraneArm"), PadCube, FVector(-350.0, 0, 5800.0), FVector(7.0, 0.4, 0.35), FRotator::ZeroRotator, MetalMat);
+			// Service tower (Fixed Service Structure) — further back
+			MakePart(TEXT("ServiceTower"), PadCylinder, FVector(-1000.0, 0, 2800.0), FVector(2.5, 2.5, 56.0), FRotator::ZeroRotator, MetalMat);
+			MakePart(TEXT("CraneArm"), PadCube, FVector(-500.0, 0, 5800.0), FVector(5.0, 0.4, 0.35), FRotator::ZeroRotator, MetalMat);
 
-			// Lightning protection towers
-			MakePart(TEXT("LightningMast1"), PadCylinder, FVector(-700.0, 0, 6200.0), FVector(0.25, 0.25, 14.0), FRotator::ZeroRotator, RedMat);
-			MakePart(TEXT("LightningMast2"), PadCylinder, FVector(600.0, 600.0, 4500.0), FVector(0.2, 0.2, 10.0), FRotator::ZeroRotator, RedMat);
-			MakePart(TEXT("LightningMast3"), PadCylinder, FVector(600.0, -600.0, 4500.0), FVector(0.2, 0.2, 10.0), FRotator::ZeroRotator, RedMat);
+			// Lightning protection towers — positioned clear of flight path
+			MakePart(TEXT("LightningMast1"), PadCylinder, FVector(-1000.0, 0, 6200.0), FVector(0.25, 0.25, 14.0), FRotator::ZeroRotator, RedMat);
+			MakePart(TEXT("LightningMast2"), PadCylinder, FVector(800.0, 800.0, 4500.0), FVector(0.2, 0.2, 10.0), FRotator::ZeroRotator, RedMat);
+			MakePart(TEXT("LightningMast3"), PadCylinder, FVector(800.0, -800.0, 4500.0), FVector(0.2, 0.2, 10.0), FRotator::ZeroRotator, RedMat);
 
 			// Flame trench — runs under the pad
 			MakePart(TEXT("FlameTrench"), PadCube, FVector(0, 0, -250.0), FVector(5.0, 25.0, 4.0), FRotator::ZeroRotator, DarkMat);
@@ -1042,6 +1085,34 @@ void AAstralisAssemblyGameMode::Tick(float DeltaTime)
 			const float LiftoffBoost = FMath::Max(0.0f, 1.0f - static_cast<float>(LaunchVehicle->MissionElapsedTime_s) / 8.0f);
 			float ShakeBase = (Pawn->CameraMode == AAstralisAssemblyPawn::ECameraMode::Close) ? 14.0f : 8.0f;
 			Pawn->SetShakeIntensity(AtmAtten * (ShakeBase + LiftoffBoost * 25.0f));
+		}
+
+		// Hide launch pad infrastructure once rocket clears the tower
+		if (LaunchPadActor && LaunchVehicle->Altitude_m > 500.0 && !LaunchPadActor->IsHidden())
+		{
+			LaunchPadActor->SetActorHiddenInGame(true);
+		}
+
+		// Hide only the landscape terrain above 30km so terrain doesn't clip the rocket.
+		// Keep SkyAtmosphere/fog/clouds so the sky fades naturally to space.
+		if (LaunchVehicle->Altitude_m > 30000.0 && !bLandscapeHiddenForLaunch)
+		{
+			for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+			{
+				AActor* Actor = *It;
+				for (UActorComponent* Comp : Actor->GetComponents())
+				{
+					if (Comp->GetClass()->GetName().Contains(TEXT("Landscape")))
+					{
+						Actor->SetActorHiddenInGame(true);
+						HiddenForOrbit.Add(Actor);
+						break;
+					}
+				}
+			}
+			if (LaunchPadActor && !LaunchPadActor->IsHidden())
+				LaunchPadActor->SetActorHiddenInGame(true);
+			bLandscapeHiddenForLaunch = true;
 		}
 
 		// Liftoff exhaust cloud — massive water deluge + engine exhaust billow

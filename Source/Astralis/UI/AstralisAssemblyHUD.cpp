@@ -811,39 +811,6 @@ void AAstralisAssemblyHUD::DrawAssemblyHUD(float W, float H, AAstralisAssemblyGa
 		Canvas->DrawItem(GOI);
 	}
 
-	// Mission Difficulty — bottom-left
-	{
-		const double Diff = GM->GetMissionDifficulty();
-		const float PX = 20.0f, PY = 808.0f, PW = 340.0f, PH = 50.0f;
-		DrawPanel(PX, PY, PW, PH, TEXT(""), FLinearColor(0.8f, 0.4f, 0.9f, 1.0f));
-
-		const float LX = PX + 14.0f;
-		FLinearColor DiffCol;
-		FString DiffLabel;
-		if (Diff <= 1.5) { DiffLabel = TEXT("EASY"); DiffCol = FLinearColor(0.2f, 1.0f, 0.3f, 1.0f); }
-		else if (Diff <= 2.5) { DiffLabel = TEXT("MODERATE"); DiffCol = FLinearColor(1.0f, 0.9f, 0.2f, 1.0f); }
-		else if (Diff <= 3.5) { DiffLabel = TEXT("HARD"); DiffCol = FLinearColor(1.0f, 0.5f, 0.1f, 1.0f); }
-		else { DiffLabel = TEXT("EXTREME"); DiffCol = FLinearColor(1.0f, 0.2f, 0.1f, 1.0f); }
-
-		FCanvasTextItem DI(FVector2D(LX, PY + 10.0f),
-			FText::FromString(FString::Printf(TEXT("Difficulty: %s (%.1f/5.0)"), *DiffLabel, Diff)),
-			SmFont, DiffCol);
-		DI.Scale = FVector2D(1.1f, 1.1f);
-		Canvas->DrawItem(DI);
-
-		// Difficulty bar
-		const float BarX = LX + 220.0f;
-		const float BarW = 90.0f;
-		FCanvasTileItem BarBG(FVector2D(BarX, PY + 14.0f), FVector2D(BarW, 10.0f),
-			FLinearColor(0.1f, 0.1f, 0.15f, 0.7f));
-		BarBG.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(BarBG);
-		const float DFrac = static_cast<float>(FMath::Clamp(Diff / 5.0, 0.0, 1.0));
-		FCanvasTileItem Fill(FVector2D(BarX, PY + 14.0f), FVector2D(BarW * DFrac, 10.0f), DiffCol);
-		Fill.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(Fill);
-	}
-
 	// ── SPACECRAFT BUS — center-left panel ───────────────────────────────
 	{
 		const float PX = 380.0f, PY = 60.0f, PW = 300.0f, PH = 220.0f;
@@ -1001,32 +968,6 @@ void AAstralisAssemblyHUD::DrawAssemblyHUD(float W, float H, AAstralisAssemblyGa
 		Canvas->DrawItem(BarFill);
 	}
 
-	// ── MASS & POWER SUMMARY — below budget ───────────────────────────────
-	if (GM->BusCatalog.Num() > 0)
-	{
-		const float PX = 380.0f, PY = H - 60.0f, PW = 300.0f, PH = 24.0f;
-		const FSpacecraftBusDefinition& Bus = GM->GetSelectedBus();
-		const double TotalPayload = Bus.DryMass_kg + GM->GetInstrumentMass_kg();
-		const double TotalPower = 80.0 + GM->GetInstrumentPower_W();
-		bool bMassOver = GM->GetInstrumentMass_kg() > Bus.MaxPayloadMass_kg;
-		bool bPwrOver = TotalPower > Bus.PowerGeneration_W;
-
-		FLinearColor MCol = bMassOver ? FLinearColor(1.0f, 0.2f, 0.1f) : FLinearColor(0.5f, 0.8f, 1.0f);
-		FLinearColor PCol = bPwrOver ? FLinearColor(1.0f, 0.2f, 0.1f) : FLinearColor(0.5f, 0.8f, 1.0f);
-
-		FCanvasTextItem MI(FVector2D(PX, PY),
-			FText::FromString(FString::Printf(TEXT("Payload: %.0f/%.0f kg"), GM->GetInstrumentMass_kg(), Bus.MaxPayloadMass_kg)),
-			SmFont, MCol);
-		MI.Scale = FVector2D(0.85f, 0.85f);
-		Canvas->DrawItem(MI);
-
-		FCanvasTextItem PwrSumI(FVector2D(PX + 160.0f, PY),
-			FText::FromString(FString::Printf(TEXT("Power: %.0f/%.0f W"), TotalPower, Bus.PowerGeneration_W)),
-			SmFont, PCol);
-		PwrSumI.Scale = FVector2D(0.85f, 0.85f);
-		Canvas->DrawItem(PwrSumI);
-	}
-
 	// Vehicle Overview — right panel
 	if (V)
 	{
@@ -1159,117 +1100,6 @@ void AAstralisAssemblyHUD::DrawAssemblyHUD(float W, float H, AAstralisAssemblyGa
 		FCanvasTextItem SumI(FVector2D(LX, TY), FText::FromString(SummaryStr), SmFont, SumCol);
 		SumI.Scale = FVector2D(1.1f, 1.1f);
 		Canvas->DrawItem(SumI);
-	}
-
-	// Design Score Preview — below checklist (estimated pre-launch score)
-	if (V && GM->BusCatalog.Num() > 0)
-	{
-		const float PX = W - 340.0f, PY = 750.0f, PW = 320.0f, PH = 100.0f;
-		DrawPanel(PX, PY, PW, PH, TEXT("SCORE POTENTIAL"), FLinearColor(1.0f, 0.85f, 0.2f, 1.0f));
-
-		float TY = PY + 28.0f;
-		const float LX = PX + 14.0f;
-
-		// Estimate design bonuses (budget, compatibility, margin)
-		double BudgetEst = 0.0;
-		if (!GM->Budget.IsOverBudget())
-		{
-			double Pct = FMath::Clamp(GM->Budget.GetRemaining() / GM->Budget.TotalBudget_M, 0.0, 0.5);
-			BudgetEst = 15.0 * (Pct / 0.5);
-		}
-
-		double CompatEst = 0.0;
-		{
-			double TargetAlt_est = GM->GetSelectedMission().TargetAltitude_km;
-			int32 Compat = 0, Total = 0;
-			for (int32 i = 0; i < GM->InstrumentCatalog.Num(); ++i)
-			{
-				if (!GM->InstrumentSelected[i]) continue;
-				Total++;
-				const FInstrumentDefinition& Inst = GM->InstrumentCatalog[i];
-				if (TargetAlt_est >= Inst.MinAltitude_km && TargetAlt_est <= Inst.MaxAltitude_km) Compat++;
-			}
-			if (Total > 0) CompatEst = 10.0 * (static_cast<double>(Compat) / Total);
-		}
-
-		const FSpacecraftBusDefinition& Bus = GM->GetSelectedBus();
-		double MassPct = FMath::Clamp(1.0 - GM->GetInstrumentMass_kg() / FMath::Max(1.0, Bus.MaxPayloadMass_kg), 0.0, 1.0);
-		double PwrPct = FMath::Clamp(1.0 - (80.0 + GM->GetInstrumentPower_W()) / FMath::Max(1.0, Bus.PowerGeneration_W), 0.0, 1.0);
-		double MarginEst = 10.0 * (MassPct * 0.5 + PwrPct * 0.5);
-
-		double DesignTotal = BudgetEst + CompatEst + MarginEst;
-
-		auto EstLine = [&](const FString& Str, const FLinearColor& Col)
-		{
-			FCanvasTextItem EI(FVector2D(LX, TY), FText::FromString(Str), SmFont, Col);
-			EI.Scale = FVector2D(0.85f, 0.85f);
-			Canvas->DrawItem(EI);
-			TY += 15.0f;
-		};
-
-		EstLine(FString::Printf(TEXT("Budget: +%.0f  Compat: +%.0f  Margin: +%.0f"),
-			BudgetEst, CompatEst, MarginEst), FLinearColor(0.6f, 0.7f, 0.8f));
-		EstLine(FString::Printf(TEXT("Design Bonus: +%.0f / 35 (added to launch score)"),
-			DesignTotal),
-			(DesignTotal > 25.0) ? FLinearColor(0.2f, 1.0f, 0.4f)
-			: (DesignTotal > 15.0) ? FLinearColor(1.0f, 0.9f, 0.2f)
-			: FLinearColor(1.0f, 0.5f, 0.2f));
-		EstLine(TEXT("(Science bonus earned during orbit phase)"), FLinearColor(0.4f, 0.4f, 0.5f));
-	}
-
-	// ── MISSION COMPATIBILITY MATRIX ──────────────────────────────────────
-	if (V && GM->BusCatalog.Num() > 0)
-	{
-		const float PX = 380.0f, PY = H - 62.0f, PW = 300.0f, PH = 52.0f;
-		FCanvasTileItem MCBg(FVector2D(PX, PY), FVector2D(PW, PH),
-			FLinearColor(0.02f, 0.03f, 0.06f, 0.85f));
-		MCBg.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(MCBg);
-
-		const FMissionDefinition& Msn = GM->GetSelectedMission();
-		const FLaunchVehicleDefinition& Veh = GM->GetSelectedVehicle();
-		const FSpacecraftBusDefinition& Bus = GM->GetSelectedBus();
-		const double DV = V->GetTotalDeltaV_mps();
-		double RequiredDV = Msn.TargetAltitude_km < 600.0 ? 9400.0
-			: Msn.TargetAltitude_km < 2000.0 ? 10200.0
-			: Msn.TargetAltitude_km < 36000.0 ? 14000.0 : 16000.0;
-
-		const double PayloadCap = Veh.PayloadToLEO_kg;
-		const double SCMass = Bus.DryMass_kg + GM->GetInstrumentMass_kg();
-		bool bDVOK = DV >= RequiredDV;
-		bool bPayOK = PayloadCap <= 0 || SCMass <= PayloadCap;
-
-		int32 OKCount = 0;
-		if (bDVOK) OKCount++;
-		if (bPayOK) OKCount++;
-		if (GM->bLaunchGO) OKCount++;
-		if (!GM->Budget.IsOverBudget()) OKCount++;
-
-		FLinearColor MReadyCol;
-		FString MReadyStr;
-		if (OKCount == 4) { MReadyStr = TEXT("MISSION READY"); MReadyCol = FLinearColor(0.2f, 1.0f, 0.3f); }
-		else if (OKCount >= 2) { MReadyStr = TEXT("ISSUES DETECTED"); MReadyCol = FLinearColor(1.0f, 0.8f, 0.2f); }
-		else { MReadyStr = TEXT("NOT VIABLE"); MReadyCol = FLinearColor(1.0f, 0.3f, 0.1f); }
-
-		const float LX = PX + 10.0f;
-
-		FCanvasTileItem MReadyDot(FVector2D(LX, PY + 8.0f), FVector2D(10.0f, 10.0f), MReadyCol);
-		MReadyDot.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(MReadyDot);
-		FCanvasTextItem MRI(FVector2D(LX + 16.0f, PY + 5.0f),
-			FText::FromString(MReadyStr), SmFont, MReadyCol);
-		MRI.Scale = FVector2D(0.95f, 0.95f);
-		Canvas->DrawItem(MRI);
-
-		FString DetailsStr = FString::Printf(TEXT("DV:%s  Mass:%s  Wx:%s  Budget:%s"),
-			bDVOK ? TEXT("GO") : TEXT("NO"),
-			bPayOK ? TEXT("GO") : TEXT("NO"),
-			GM->bLaunchGO ? TEXT("GO") : TEXT("NO"),
-			GM->Budget.IsOverBudget() ? TEXT("NO") : TEXT("GO"));
-		FCanvasTextItem DetI(FVector2D(LX, PY + 26.0f), FText::FromString(DetailsStr), SmFont,
-			FLinearColor(0.5f, 0.6f, 0.7f, 0.8f));
-		DetI.Scale = FVector2D(0.8f, 0.8f);
-		Canvas->DrawItem(DetI);
 	}
 
 	// Engine swap overlay — center panel
@@ -1919,110 +1749,6 @@ void AAstralisAssemblyHUD::DrawLaunchHUD(float W, float H, AAstralisAssemblyGame
 		}
 	}
 
-	// ── PITCH ANGLE INDICATOR (mini artificial horizon) ──────────────────
-	if (V->MissionState == ELaunchVehicleState::Ascent || V->MissionState == ELaunchVehicleState::Liftoff)
-	{
-		const float PAX = 20.0f, PAY = H - 340.0f;
-		const float PAW = 100.0f, PAH = 100.0f;
-
-		FCanvasTileItem PABG(FVector2D(PAX, PAY), FVector2D(PAW, PAH),
-			FLinearColor(0.02f, 0.03f, 0.06f, 0.85f));
-		PABG.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(PABG);
-		FCanvasTileItem PABorder(FVector2D(PAX, PAY), FVector2D(PAW, 1.5f),
-			FLinearColor(0.0f, 0.5f, 0.8f, 0.6f));
-		PABorder.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(PABorder);
-
-		const float CX = PAX + PAW * 0.5f;
-		const float CY = PAY + PAH * 0.5f;
-		const float R = 38.0f;
-		const double Pitch = V->GetPitchAngle_deg();
-
-		// Sky/ground split based on pitch
-		float HorizonY = CY - R * static_cast<float>(Pitch / 90.0);
-		HorizonY = FMath::Clamp(HorizonY, PAY + 4.0f, PAY + PAH - 4.0f);
-
-		// Sky (blue)
-		FCanvasTileItem Sky(FVector2D(PAX + 4.0f, PAY + 4.0f),
-			FVector2D(PAW - 8.0f, HorizonY - PAY - 4.0f),
-			FLinearColor(0.1f, 0.2f, 0.5f, 0.5f));
-		Sky.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(Sky);
-
-		// Ground (brown)
-		FCanvasTileItem Gnd(FVector2D(PAX + 4.0f, HorizonY),
-			FVector2D(PAW - 8.0f, PAY + PAH - 4.0f - HorizonY),
-			FLinearColor(0.3f, 0.2f, 0.1f, 0.5f));
-		Gnd.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(Gnd);
-
-		// Horizon line
-		FCanvasTileItem HLine(FVector2D(PAX + 4.0f, HorizonY - 1.0f),
-			FVector2D(PAW - 8.0f, 2.0f),
-			FLinearColor(0.8f, 0.8f, 0.8f, 0.7f));
-		HLine.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(HLine);
-
-		// Center crosshair
-		FCanvasTileItem CHH(FVector2D(CX - 12.0f, CY - 1.0f), FVector2D(24.0f, 2.0f),
-			FLinearColor(1.0f, 0.8f, 0.0f, 0.9f));
-		CHH.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(CHH);
-		FCanvasTileItem CHV(FVector2D(CX - 1.0f, CY - 8.0f), FVector2D(2.0f, 16.0f),
-			FLinearColor(1.0f, 0.8f, 0.0f, 0.9f));
-		CHV.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(CHV);
-
-		// Pitch readout
-		FCanvasTextItem PLabel(FVector2D(PAX + 4.0f, PAY + PAH - 14.0f),
-			FText::FromString(FString::Printf(TEXT("PITCH: %.1f"), Pitch)),
-			SmFont, FLinearColor(0.6f, 0.8f, 1.0f, 0.8f));
-		PLabel.Scale = FVector2D(0.7f, 0.7f);
-		Canvas->DrawItem(PLabel);
-	}
-
-	// ── ORBIT INSERTION PROGRESS ─────────────────────────────────────────
-	if (V->Altitude_m > 50.0e3 && V->MissionState != ELaunchVehicleState::Complete)
-	{
-		const float OPX = 20.0f, OPY = H - 230.0f;
-		const float OPW = 210.0f, OPH = 74.0f;
-
-		FCanvasTileItem OPBG(FVector2D(OPX, OPY), FVector2D(OPW, OPH),
-			FLinearColor(0.02f, 0.03f, 0.06f, 0.82f));
-		OPBG.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(OPBG);
-		FCanvasTileItem OPAcc(FVector2D(OPX, OPY), FVector2D(OPW, 1.5f),
-			FLinearColor(0.5f, 0.3f, 0.9f, 0.6f));
-		OPAcc.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(OPAcc);
-
-		FCanvasTextItem OPTitle(FVector2D(OPX + 8.0f, OPY + 4.0f),
-			FText::FromString(TEXT("ORBIT INSERTION")), SmFont,
-			FLinearColor(0.5f, 0.4f, 0.9f, 0.8f));
-		OPTitle.Scale = FVector2D(0.7f, 0.7f);
-		Canvas->DrawItem(OPTitle);
-
-		const double VelPct = FMath::Clamp(V->Velocity_mps / 7670.0, 0.0, 1.0);
-		const double AltPct = FMath::Clamp(V->Altitude_m / V->GetTargetAltitude_m(), 0.0, 1.0);
-		const double OverallPct = VelPct * 0.7 + AltPct * 0.3;
-
-		DrawProgressBar(OPX + 8.0f, OPY + 18.0f, OPW - 16.0f, 10.0f,
-			V->Velocity_mps, 7670.0,
-			FLinearColor(0.3f, 1.0f, 0.5f, 0.8f),
-			FString::Printf(TEXT("Vel: %.0f%%"), VelPct * 100.0));
-
-		DrawProgressBar(OPX + 8.0f, OPY + 34.0f, OPW - 16.0f, 10.0f,
-			V->Altitude_m / 1000.0, V->GetTargetAltitude_m() / 1000.0,
-			FLinearColor(0.2f, 0.7f, 1.0f, 0.8f),
-			FString::Printf(TEXT("Alt: %.0f%%"), AltPct * 100.0));
-
-		DrawProgressBar(OPX + 8.0f, OPY + 52.0f, OPW - 16.0f, 12.0f,
-			OverallPct * 100.0, 100.0,
-			(OverallPct > 0.9) ? FLinearColor(0.2f, 1.0f, 0.4f) : FLinearColor(0.8f, 0.5f, 1.0f),
-			FString::Printf(TEXT("Overall: %.0f%%"), OverallPct * 100.0));
-	}
-
 	// ── BOOSTBACK / RECOVERY NOTIFICATION ──────────────────────────────────
 	{
 		const FLaunchVehicleDefinition& VehDef = GM->GetSelectedVehicle();
@@ -2066,69 +1792,47 @@ void AAstralisAssemblyHUD::DrawLaunchHUD(float W, float H, AAstralisAssemblyGame
 		}
 	}
 
-	// ── RANGE SAFETY & WEATHER (compact strip) ────────────────────────────
+	// ── STATUS STRIP (single row) ──────────────────────────────────────────
 	{
-		const float StripY = H - 290.0f;
+		const float StripY = H - 270.0f;
 		const float StripW = W - 540.0f;
-		const float StripH = 48.0f;
+		const float StripH = 26.0f;
 		const float StripX = 250.0f;
-		DrawPanel(StripX, StripY, StripW, StripH, TEXT(""), FLinearColor(0.5f, 0.6f, 0.7f, 0.6f));
 
-		const float LX = StripX + 10.0f;
-		float CurrX = LX;
+		FCanvasTileItem StripBG(FVector2D(StripX, StripY), FVector2D(StripW, StripH),
+			FLinearColor(0.02f, 0.03f, 0.06f, 0.7f));
+		StripBG.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(StripBG);
+
+		float CurrX = StripX + 10.0f;
 		auto DrawChip = [&](const FString& Label, const FLinearColor& Col)
 		{
-			const float ChipH = 14.0f;
 			float CW2, CH2;
 			Canvas->TextSize(SmFont, Label, CW2, CH2);
-			const float ChipW = CW2 + 10.0f;
-			FCanvasTileItem Bg(FVector2D(CurrX, StripY + 6.0f), FVector2D(ChipW, ChipH + 6.0f),
-				FLinearColor(Col.R * 0.2f, Col.G * 0.2f, Col.B * 0.2f, 0.6f));
-			Bg.BlendMode = SE_BLEND_Translucent;
-			Canvas->DrawItem(Bg);
-			FCanvasTextItem CI(FVector2D(CurrX + 5.0f, StripY + 8.0f),
-				FText::FromString(Label), SmFont, Col);
-			CI.Scale = FVector2D(0.85f, 0.85f);
-			Canvas->DrawItem(CI);
-			CurrX += ChipW + 8.0f;
-		};
-
-		DrawChip(TEXT("FTS: ARMED"), FLinearColor(0.2f, 1.0f, 0.3f));
-		DrawChip(TEXT("RANGE: CLEAR"), FLinearColor(0.2f, 1.0f, 0.3f));
-		DrawChip(FString::Printf(TEXT("WIND: %.0f kts"), GM->WindSpeed_kts),
-			GM->WindSpeed_kts > 25.0 ? FLinearColor(1.0f, 0.5f, 0.2f) : FLinearColor(0.3f, 0.9f, 0.5f));
-		DrawChip(FString::Printf(TEXT("T: %.0fF"), GM->Temperature_F), FLinearColor(0.7f, 0.8f, 0.9f));
-
-		if (V->MissionState == ELaunchVehicleState::Countdown)
-		{
-			const double FuelPct = FMath::Clamp(1.0 - V->CountdownTimer_s / V->CountdownDuration_s, 0.0, 1.0) * 100.0;
-			DrawChip(FString::Printf(TEXT("PROP LOAD: %.0f%%"), FuelPct),
-				FuelPct >= 100.0 ? FLinearColor(0.2f, 1.0f, 0.3f) : FLinearColor(1.0f, 0.8f, 0.2f));
-		}
-
-		// Second row
-		CurrX = LX;
-		auto DrawChip2 = [&](const FString& Label, const FLinearColor& Col)
-		{
-			float CW2, CH2;
-			Canvas->TextSize(SmFont, Label, CW2, CH2);
-			const float ChipW = CW2 + 10.0f;
-			FCanvasTileItem Bg(FVector2D(CurrX, StripY + 26.0f), FVector2D(ChipW, 18.0f),
+			const float ChipW = CW2 * 0.8f + 10.0f;
+			FCanvasTileItem Bg(FVector2D(CurrX, StripY + 4.0f), FVector2D(ChipW, 18.0f),
 				FLinearColor(Col.R * 0.15f, Col.G * 0.15f, Col.B * 0.15f, 0.5f));
 			Bg.BlendMode = SE_BLEND_Translucent;
 			Canvas->DrawItem(Bg);
-			FCanvasTextItem CI(FVector2D(CurrX + 5.0f, StripY + 28.0f),
+			FCanvasTextItem CI(FVector2D(CurrX + 5.0f, StripY + 5.0f),
 				FText::FromString(Label), SmFont, Col);
 			CI.Scale = FVector2D(0.8f, 0.8f);
 			Canvas->DrawItem(CI);
 			CurrX += ChipW + 6.0f;
 		};
 
-		DrawChip2(TEXT("GNC: GO"), FLinearColor(0.2f, 1.0f, 0.3f));
-		DrawChip2(TEXT("PROP: GO"), FLinearColor(0.2f, 1.0f, 0.3f));
-		DrawChip2(TEXT("TELEMETRY: NOMINAL"), FLinearColor(0.2f, 1.0f, 0.3f));
-		DrawChip2(FString::Printf(TEXT("STAGE: %d/%d"), V->CurrentStageIndex + 1, V->Stages.Num()),
+		DrawChip(TEXT("RANGE: GO"), FLinearColor(0.2f, 1.0f, 0.3f));
+		DrawChip(FString::Printf(TEXT("STAGE %d/%d"), V->CurrentStageIndex + 1, V->Stages.Num()),
 			FLinearColor(0.5f, 0.8f, 1.0f));
+		DrawChip(FString::Printf(TEXT("WIND %.0f kts"), GM->WindSpeed_kts),
+			GM->WindSpeed_kts > 25.0 ? FLinearColor(1.0f, 0.5f, 0.2f) : FLinearColor(0.3f, 0.9f, 0.5f));
+		if (V->MissionState == ELaunchVehicleState::Countdown)
+		{
+			const double FuelPct = FMath::Clamp(1.0 - V->CountdownTimer_s / V->CountdownDuration_s, 0.0, 1.0) * 100.0;
+			DrawChip(FString::Printf(TEXT("PROP %.0f%%"), FuelPct),
+				FuelPct >= 100.0 ? FLinearColor(0.2f, 1.0f, 0.3f) : FLinearColor(1.0f, 0.8f, 0.2f));
+		}
+		DrawChip(TEXT("GNC: GO"), FLinearColor(0.2f, 1.0f, 0.3f));
 	}
 
 	// ── BOTTOM: TELEMETRY GRAPH ───────────────────────────────────────────
@@ -2488,48 +2192,6 @@ void AAstralisAssemblyHUD::DrawLaunchHUD(float W, float H, AAstralisAssemblyGame
 				FLinearColor(MachCalloutColor.R, MachCalloutColor.G, MachCalloutColor.B, Alpha));
 			MCI.Scale = FVector2D(1.3f, 1.3f);
 			Canvas->DrawItem(MCI);
-		}
-	}
-
-	// ── DELTA-V BUDGET ────────────────────────────────────────────────────
-	{
-		const double DvRemaining = V->GetTotalDeltaV_mps();
-		const double VelNeeded = 7670.0 - V->Velocity_mps;
-		if (V->MissionState == ELaunchVehicleState::Ascent || V->MissionState == ELaunchVehicleState::CoastPhase)
-		{
-			const float DVX = W - 180.0f;
-			const float DVY = 100.0f;
-			const float DVW = 160.0f;
-
-			FCanvasTileItem DVBG(FVector2D(DVX, DVY), FVector2D(DVW, 52.0f),
-				FLinearColor(0.02f, 0.03f, 0.06f, 0.8f));
-			DVBG.BlendMode = SE_BLEND_Translucent;
-			Canvas->DrawItem(DVBG);
-			FCanvasTileItem DVAcc(FVector2D(DVX, DVY), FVector2D(DVW, 1.5f),
-				FLinearColor(0.4f, 0.2f, 0.8f, 0.7f));
-			DVAcc.BlendMode = SE_BLEND_Translucent;
-			Canvas->DrawItem(DVAcc);
-
-			FCanvasTextItem DVTitle(FVector2D(DVX + 6.0f, DVY + 3.0f),
-				FText::FromString(TEXT("DELTA-V BUDGET")), SmFont,
-				FLinearColor(0.5f, 0.4f, 0.8f, 0.8f));
-			DVTitle.Scale = FVector2D(0.7f, 0.7f);
-			Canvas->DrawItem(DVTitle);
-
-			FLinearColor DvCol = (DvRemaining > VelNeeded * 1.1) ? FLinearColor(0.3f, 1.0f, 0.5f)
-				: (DvRemaining > VelNeeded * 0.8) ? FLinearColor(1.0f, 0.8f, 0.2f)
-				: FLinearColor(1.0f, 0.3f, 0.1f);
-			FCanvasTextItem DVVal(FVector2D(DVX + 6.0f, DVY + 16.0f),
-				FText::FromString(FString::Printf(TEXT("%.0f m/s remaining"), DvRemaining)),
-				SmFont, DvCol);
-			DVVal.Scale = FVector2D(0.85f, 0.85f);
-			Canvas->DrawItem(DVVal);
-
-			FCanvasTextItem DVNeed(FVector2D(DVX + 6.0f, DVY + 33.0f),
-				FText::FromString(FString::Printf(TEXT("%.0f m/s to orbit"), FMath::Max(0.0, VelNeeded))),
-				SmFont, FLinearColor(0.5f, 0.6f, 0.7f, 0.7f));
-			DVNeed.Scale = FVector2D(0.8f, 0.8f);
-			Canvas->DrawItem(DVNeed);
 		}
 	}
 
@@ -3189,80 +2851,10 @@ void AAstralisAssemblyHUD::DrawOrbitHUD(float W, float H, AAstralisAssemblyGameM
 			SC.Orbital.Position_m, EarthR);
 	}
 
-	// ── HOHMANN TRANSFER INFO ──────────────────────────────────────────────
-	{
-		const float PX = 320.0f, PY = H - 200.0f, PW = W - 660.0f, PH = 130.0f;
-		if (PW > 200.0f)
-		{
-			DrawPanel(PX, PY, PW, PH, TEXT("TRANSFER CALCULATOR"), FLinearColor(0.8f, 0.6f, 0.2f, 1.0f));
-
-			float TY = PY + 26.0f;
-			const float LX = PX + 14.0f;
-
-			const double R_m = SC.Orbital.Position_m.Size();
-			const double Alt_km = (R_m - EarthR) / 1000.0;
-			const double V_circ = FMath::Sqrt(Mu / R_m);
-			const double Vel = SC.Orbital.Velocity_mps.Size();
-
-			// Circular orbit at current altitude
-			FCanvasTextItem C1(FVector2D(LX, TY),
-				FText::FromString(FString::Printf(TEXT("Circular velocity at %.0f km: %.0f m/s  (current: %.0f)"),
-					Alt_km, V_circ, Vel)),
-				SmFont, FLinearColor(0.7f, 0.8f, 0.9f));
-			C1.Scale = FVector2D(0.9f, 0.9f);
-			Canvas->DrawItem(C1);
-			TY += 18.0f;
-
-			// Hohmann to GEO
-			const double R_geo = EarthR + 35786.0e3;
-			const double V_dep_geo = FMath::Sqrt(Mu * (2.0 / R_m - 2.0 / (R_m + R_geo)));
-			const double DV1_geo = V_dep_geo - V_circ;
-			const double V_arr_geo = FMath::Sqrt(Mu * (2.0 / R_geo - 2.0 / (R_m + R_geo)));
-			const double V_circ_geo = FMath::Sqrt(Mu / R_geo);
-			const double DV2_geo = V_circ_geo - V_arr_geo;
-			const double TransferTime_hr = PI * FMath::Sqrt(FMath::Pow((R_m + R_geo) / 2.0, 3.0) / Mu) / 3600.0;
-
-			FCanvasTextItem G1(FVector2D(LX, TY),
-				FText::FromString(FString::Printf(TEXT("To GEO (35786 km): DV1=%.0f  DV2=%.0f  Total=%.0f m/s  (%.1f hr)"),
-					DV1_geo, DV2_geo, DV1_geo + DV2_geo, TransferTime_hr)),
-				SmFont, FLinearColor(1.0f, 0.8f, 0.3f, 0.9f));
-			G1.Scale = FVector2D(0.85f, 0.85f);
-			Canvas->DrawItem(G1);
-			TY += 18.0f;
-
-			// Hohmann to Moon
-			const double R_moon = EarthR + 384400.0e3;
-			const double V_dep_moon = FMath::Sqrt(Mu * (2.0 / R_m - 2.0 / (R_m + R_moon)));
-			const double DV_moon = V_dep_moon - V_circ;
-			const double TransferTime_day = PI * FMath::Sqrt(FMath::Pow((R_m + R_moon) / 2.0, 3.0) / Mu) / 86400.0;
-
-			FCanvasTextItem M1(FVector2D(LX, TY),
-				FText::FromString(FString::Printf(TEXT("Lunar Transfer: DV=%.0f m/s  (%.1f days)"),
-					DV_moon, TransferTime_day)),
-				SmFont, FLinearColor(0.8f, 0.8f, 0.9f, 0.8f));
-			M1.Scale = FVector2D(0.85f, 0.85f);
-			Canvas->DrawItem(M1);
-			TY += 18.0f;
-
-			// DV remaining
-			const double PropRemain = SC.Mass.PropellantMass_kg;
-			const double DryMass = SC.Mass.TotalMass_kg - PropRemain;
-			const double DVRemain = (DryMass > 0 && PropRemain > 0)
-				? 320.0 * 9.80665 * FMath::Loge(SC.Mass.TotalMass_kg / DryMass) : 0.0;
-			FLinearColor DVCol = (DVRemain > 500.0) ? FLinearColor(0.2f, 1.0f, 0.3f)
-				: (DVRemain > 100.0) ? FLinearColor(1.0f, 0.8f, 0.2f) : FLinearColor(1.0f, 0.3f, 0.1f);
-			FCanvasTextItem DVI(FVector2D(LX, TY),
-				FText::FromString(FString::Printf(TEXT("DV remaining: ~%.0f m/s  (Isp ~320s assumed)"), DVRemain)),
-				SmFont, DVCol);
-			DVI.Scale = FVector2D(0.9f, 0.9f);
-			Canvas->DrawItem(DVI);
-		}
-	}
-
 	// ── SPACECRAFT RESOURCES ───────────────────────────────────────────────
 	{
 		const auto& R = GM->SCResources;
-		const float PX = W - 320.0f, PY = 440.0f, PW = 300.0f, PH = 360.0f;
+		const float PX = W - 320.0f, PY = 440.0f, PW = 300.0f, PH = 300.0f;
 		DrawPanel(PX, PY, PW, PH, TEXT("SPACECRAFT RESOURCES"), FLinearColor(0.7f, 0.4f, 1.0f, 1.0f));
 
 		float TY = PY + 30.0f;
@@ -3360,64 +2952,11 @@ void AAstralisAssemblyHUD::DrawOrbitHUD(float W, float H, AAstralisAssemblyGameM
 
 		// Science score
 		FCanvasTextItem SciI(FVector2D(LX, TY),
-			FText::FromString(FString::Printf(TEXT("Science Collected: %.1f pts  (x%.1f multiplier)"),
+			FText::FromString(FString::Printf(TEXT("Science: %.1f pts  (x%.1f)"),
 				R.ScienceCollected, GM->GetScienceMultiplier())),
 			SmFont, FLinearColor(0.8f, 0.6f, 1.0f));
 		SciI.Scale = FVector2D(0.85f, 0.85f);
 		Canvas->DrawItem(SciI);
-		TY += 18.0f;
-
-		// Mission elapsed time
-		const double MT = R.MissionTime_s;
-		const int32 Days = static_cast<int32>(MT / 86400.0);
-		const int32 Hours = static_cast<int32>(FMath::Fmod(MT, 86400.0) / 3600.0);
-		const int32 Mins = static_cast<int32>(FMath::Fmod(MT, 3600.0) / 60.0);
-		FCanvasTextItem MTI(FVector2D(LX, TY),
-			FText::FromString(FString::Printf(TEXT("Mission Time: %dd %02dh %02dm"), Days, Hours, Mins)),
-			SmFont, FLinearColor(0.5f, 0.7f, 0.9f));
-		MTI.Scale = FVector2D(0.85f, 0.85f);
-		Canvas->DrawItem(MTI);
-		TY += 18.0f;
-
-		// Next event timers (comm window / eclipse)
-		{
-			const double OrbPhase = FMath::Fmod(R.MissionTime_s / 5400.0, 1.0);
-			const double ContactPhase = FMath::Fmod(R.MissionTime_s / 5400.0 * 3.7, 1.0);
-
-			FString NextEvent;
-			FLinearColor NextCol;
-			if (R.bInGroundContact)
-			{
-				double RemainFrac = 0.15 - ContactPhase;
-				int32 RemainSec = static_cast<int32>(RemainFrac * 5400.0 / 3.7);
-				NextEvent = FString::Printf(TEXT("COMM WINDOW: %ds remaining"), FMath::Max(0, RemainSec));
-				NextCol = FLinearColor(0.3f, 1.0f, 0.5f);
-			}
-			else
-			{
-				double NextFrac = (ContactPhase < 0.15) ? 0.0 : (1.0 - ContactPhase);
-				int32 NextSec = static_cast<int32>(NextFrac * 5400.0 / 3.7);
-				NextEvent = FString::Printf(TEXT("Next comm in: %dm %02ds"), NextSec / 60, NextSec % 60);
-				NextCol = FLinearColor(0.5f, 0.5f, 0.6f);
-			}
-
-			FCanvasTextItem NEI(FVector2D(LX, TY), FText::FromString(NextEvent), SmFont, NextCol);
-			NEI.Scale = FVector2D(0.8f, 0.8f);
-			Canvas->DrawItem(NEI);
-			TY += 16.0f;
-
-			if (!R.bInSunlight)
-			{
-				double EclipseRemain = 0.35 - (OrbPhase - 0.65);
-				if (EclipseRemain < 0) EclipseRemain += 1.0;
-				int32 SunSec = static_cast<int32>(EclipseRemain * 5400.0);
-				FCanvasTextItem EclI(FVector2D(LX, TY),
-					FText::FromString(FString::Printf(TEXT("Eclipse — sunlight in %dm %02ds"), SunSec / 60, SunSec % 60)),
-					SmFont, FLinearColor(0.6f, 0.4f, 0.2f));
-				EclI.Scale = FVector2D(0.8f, 0.8f);
-				Canvas->DrawItem(EclI);
-			}
-		}
 	}
 
 	// ── ACTIVE INSTRUMENTS ────────────────────────────────────────────────

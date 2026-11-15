@@ -230,6 +230,8 @@ private:
 	void FocusCameraOnPad();
 	void DestroyLaunchVehicle();
 	void SetLevelEnvironmentVisible(bool bVisible);
+	void ApplyLandscapeMaterial();
 
 	TArray<TWeakObjectPtr<AActor>> HiddenForOrbit;
+	bool bLandscapeHiddenForLaunch = false;
 };

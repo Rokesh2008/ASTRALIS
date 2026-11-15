@@ -23,7 +23,8 @@ public class Astralis : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"RenderCore",
-			"RHI"
+			"RHI",
+			"Landscape"
 		});
 
 		if (Target.Type == TargetType.Editor)

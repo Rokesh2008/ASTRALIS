@@ -543,50 +543,44 @@ void AAstralisLaunchVehicleActor::UpdateFlightPhysics(float DeltaTime)
 		const double g = MU / (FlightR_m * FlightR_m);
 		const double cent = FlightVt_mps * FlightVt_mps / FlightR_m;
 
-		// Pitch guidance — Falcon 9 flight-proven profile
+		// Pitch guidance
+		// Stage 1: gentle arc from 90° down to ~35°, looks like a proper launch
+		// Stage 2: closed-loop guidance finishes the push to orbital velocity
 		double DesiredPitch = PitchAngle_deg;
-		if (MissionElapsedTime_s < 8.0)
+		if (MissionElapsedTime_s < 12.0)
 		{
 			DesiredPitch = 90.0;
 		}
 		else if (CurrentStageIndex == 0)
 		{
-			if (MissionElapsedTime_s < 15.0)
-			{
-				const double f = (MissionElapsedTime_s - 8.0) / 7.0;
-				const double eased = f * f * (3.0 - 2.0 * f);
-				DesiredPitch = 90.0 - 3.0 * eased;
-			}
-			else
-			{
-				const double BurnRemain = FMath::Max(1.0, S1BurnTime_s - 15.0);
-				const double f = FMath::Clamp((MissionElapsedTime_s - 15.0) / BurnRemain, 0.0, 1.0);
-				DesiredPitch = 87.0 - 82.0 * FMath::Pow(f, 0.9);
-				DesiredPitch = FMath::Clamp(DesiredPitch, 5.0, 87.0);
-			}
+			// Smooth, gentle pitchover: 90° → 35° over the Stage 1 burn
+			// This looks like a proper rocket launch, not a missile
+			const double BurnRemain = FMath::Max(1.0, S1BurnTime_s - 12.0);
+			const double f = FMath::Clamp((MissionElapsedTime_s - 12.0) / BurnRemain, 0.0, 1.0);
+			// Ease-in-out for smooth visual arc
+			const double eased = f * f * (3.0 - 2.0 * f);
+			DesiredPitch = 90.0 - 55.0 * eased;
+			DesiredPitch = FMath::Clamp(DesiredPitch, 35.0, 90.0);
 		}
 		else
 		{
-			// Stage 2: energy-optimal guidance targeting orbit altitude
-			const double w = 0.012;
+			// Stage 2: closed-loop guidance targeting orbit altitude
+			const double w = 0.018;
 			const double ar_desired = w * w * (TargetAltitude_m - h) - 2.0 * w * FlightVr_mps + g - cent;
 			const double accel = (Thrust > 0) ? Thrust / m : 1.0;
-			const double sg = FMath::Clamp(ar_desired / accel, -0.15, 1.0);
-			DesiredPitch = FMath::RadiansToDegrees(FMath::Asin(sg));
-			DesiredPitch = FMath::Clamp(DesiredPitch, -8.0, 45.0);
+			const double sg = FMath::Clamp(ar_desired / accel, -0.25, 1.0);
+			DesiredPitch = FMath::RadiansToDegrees(FMath::Asin(FMath::Clamp(sg, -1.0, 1.0)));
+			DesiredPitch = FMath::Clamp(DesiredPitch, -10.0, 35.0);
 
-			// If the vehicle is falling (Vr < 0), the guidance must not
-			// command a pitch that implies more radial thrust than physically
-			// available.  A falling rocket cannot instantly reverse course.
 			if (FlightVr_mps < -50.0)
 			{
-				const double MaxRecoverPitch = FMath::Clamp(10.0 + FlightVr_mps * 0.05, -8.0, 20.0);
+				const double MaxRecoverPitch = FMath::Clamp(10.0 + FlightVr_mps * 0.04, -10.0, 20.0);
 				DesiredPitch = FMath::Min(DesiredPitch, MaxRecoverPitch);
 			}
 		}
 
-		// Rate-limit pitch changes: max 5 deg/s sim-time (realistic gimbal authority)
-		const double MaxPitchRate = 5.0;
+		// Rate-limit pitch changes (realistic TVC authority)
+		const double MaxPitchRate = (CurrentStageIndex == 0) ? 5.0 : 8.0;
 		const double PitchDelta = DesiredPitch - PitchAngle_deg;
 		const double MaxChange = MaxPitchRate * Step;
 		PitchAngle_deg += FMath::Clamp(PitchDelta, -MaxChange, MaxChange);
@@ -634,6 +628,16 @@ void AAstralisLaunchVehicleActor::UpdateFlightPhysics(float DeltaTime)
 			else if (h > 15000.0)
 			{
 				bMaxQThrottleDown = false;
+			}
+		}
+
+		// G-limit: throttle back to keep acceleration under 4G (crew/payload safety)
+		if (Thrust > 0.0 && m > 0.0)
+		{
+			const double CurrentG = Thrust / (m * G0_PHYS);
+			if (CurrentG > 4.0)
+			{
+				Thrust *= 4.0 / CurrentG;
 			}
 		}
 		const double Dr = (v > 1.0) ? D * FlightVr_mps / v : 0.0;
@@ -771,8 +775,12 @@ void AAstralisLaunchVehicleActor::UpdateFlightPhysics(float DeltaTime)
 	}
 
 	// Visual position: altitude → Z, downrange → X
-	const double UEAltitude = (Altitude_m / 1000.0) * 100.0;
-	const double UEDownrange = (FlightTheta_rad * RE / 1000.0) * 10.0;
+	// Altitude uses larger scale so rocket clearly separates from terrain.
+	// Downrange is compressed but proportional enough that the arc looks correct.
+	const double AltScale = 200.0;
+	const double DownrangeScale = 80.0;
+	const double UEAltitude = (Altitude_m / 1000.0) * AltScale;
+	const double UEDownrange = (FlightTheta_rad * RE / 1000.0) * DownrangeScale;
 	SetActorLocation(LaunchOrigin + FVector(UEDownrange, 0, UEAltitude));
 
 	// Pitch the rocket visually
