@@ -25,5 +25,10 @@ public class Astralis : ModuleRules
 			"RenderCore",
 			"RHI"
 		});
+
+		if (Target.Type == TargetType.Editor)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "UnrealEd", "LevelEditor" });
+		}
 	}
 }

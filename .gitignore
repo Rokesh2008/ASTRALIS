@@ -15,3 +15,26 @@ Saved/
 *.ipch
 __pycache__/
 *.pyc
+# Unreal generated files
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+.vs/
+.vscode/
+*.sln
+*.suo
+*.VC.db
+*.opendb
+
+# Local development files
+.codex/
+.claude/
+.mcp.json
+.env
+.env.*
+*.log
+
+# Unnecessary local files
+assets_from_me/
+green_screen_screenshot.jpg

@@ -2,6 +2,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "DrawDebugHelpers.h"
 
 AAstralisOrbitSceneActor::AAstralisOrbitSceneActor()
@@ -24,6 +25,8 @@ void AAstralisOrbitSceneActor::BeginPlay()
 {
 	Super::BeginPlay();
 
+	UE_LOG(LogTemp, Warning, TEXT("=== AstralisOrbitSceneActor::BeginPlay ==="));
+
 	// Earth sphere with NASA texture support
 	UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr,
 		TEXT("/Engine/BasicShapes/Sphere.Sphere"));
@@ -40,17 +43,34 @@ void AAstralisOrbitSceneActor::BeginPlay()
 
 		// Try NASA enhanced material first, then fallback to basic
 		UMaterialInterface* EarthMat = EarthMaterialAsset;
-		if (!EarthMat)
+		if (EarthMat)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Earth: Using blueprint-assigned material"));
+		}
+		else
 		{
 			// Try to load NASA enhanced Earth material
+			UE_LOG(LogTemp, Warning, TEXT("Earth: Trying to load /Game/NASA/Materials/M_Earth_Enhanced"));
 			EarthMat = LoadObject<UMaterialInterface>(nullptr,
 				TEXT("/Game/NASA/Materials/M_Earth_Enhanced.M_Earth_Enhanced"));
 		}
 		if (!EarthMat)
 		{
 			// Fallback to basic blue material
+			UE_LOG(LogTemp, Warning, TEXT("Earth: NASA material not found, using fallback M_Antenna"));
 			EarthMat = LoadObject<UMaterialInterface>(nullptr,
 				TEXT("/Game/Materials/M_Antenna.M_Antenna"));
+		}
+		if (!EarthMat)
+		{
+			UMaterial* BaseMat = LoadObject<UMaterial>(nullptr,
+				TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+			if (BaseMat)
+			{
+				UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(BaseMat, this);
+				MID->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.1f, 0.3f, 0.8f));
+				EarthMat = MID;
+			}
 		}
 		if (EarthMat)
 		{
@@ -59,30 +79,42 @@ void AAstralisOrbitSceneActor::BeginPlay()
 	}
 
 	// Spacecraft visual — NASA Landsat 8 or fallback cube
+	UE_LOG(LogTemp, Warning, TEXT("Spacecraft: Loading mesh..."));
 	UStaticMesh* SCMesh = SpacecraftMeshAsset;
-	if (!SCMesh)
+	if (SCMesh)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Spacecraft: Using blueprint-assigned mesh"));
+	}
+	else
 	{
 		// Try to load NASA Landsat 8 from Content
+		UE_LOG(LogTemp, Warning, TEXT("Spacecraft: Trying to load /Game/NASA/Spacecraft/Landsat8/StaticMeshes/Landsat8"));
 		SCMesh = LoadObject<UStaticMesh>(nullptr,
-			TEXT("/Game/NASA/Spacecraft/Landsat8.Landsat8"));
+			TEXT("/Game/NASA/Spacecraft/Landsat8/StaticMeshes/Landsat8.Landsat8"));
 	}
 	if (!SCMesh)
 	{
 		// Final fallback to primitive cube
+		UE_LOG(LogTemp, Warning, TEXT("Spacecraft: NASA model not found, using fallback cube"));
 		SCMesh = LoadObject<UStaticMesh>(nullptr,
 			TEXT("/Engine/BasicShapes/Cube.Cube"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Spacecraft: Mesh loaded: %s"), *SCMesh->GetName());
 	}
 
 	if (SCMesh && SpacecraftMesh)
 	{
 		SpacecraftMesh->SetStaticMesh(SCMesh);
 
-		// If using NASA model (much larger than cube), scale appropriately
-		// Landsat 8 is ~3m, at orbit scale of 1e-5 that's 0.03 cm - too small
-		// Scale up for visibility while maintaining relative orbital scale
+		// If using NASA model, scale to match orbital visualization
+		// Landsat 8 imported at 100x scale (meters to cm), needs to be scaled down at orbital scale
 		if (SpacecraftMeshAsset || SCMesh->GetPathName().Contains(TEXT("Landsat")))
 		{
-			SpacecraftMesh->SetWorldScale3D(FVector(2.0, 2.0, 2.0));
+			// Scale down to reasonable size relative to Earth visualization
+			// Exaggerated ~30x so the satellite is visible next to a 637-unit Earth
+			SpacecraftMesh->SetWorldScale3D(FVector(0.0004));
 		}
 		else
 		{
@@ -91,6 +123,17 @@ void AAstralisOrbitSceneActor::BeginPlay()
 
 			UMaterialInterface* SCMat = LoadObject<UMaterialInterface>(nullptr,
 				TEXT("/Game/Materials/M_SolarPanel.M_SolarPanel"));
+			if (!SCMat)
+			{
+				UMaterial* BM = LoadObject<UMaterial>(nullptr,
+					TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+				if (BM)
+				{
+					UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(BM, this);
+					MID->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.6f, 0.65f, 0.7f));
+					SCMat = MID;
+				}
+			}
 			if (SCMat)
 			{
 				SpacecraftMesh->SetMaterial(0, SCMat);
@@ -101,6 +144,34 @@ void AAstralisOrbitSceneActor::BeginPlay()
 
 	TrailPoints_UE.SetNum(TrailMaxPoints);
 	for (auto& P : TrailPoints_UE) P = FVector::ZeroVector;
+
+	// Star field — small bright spheres scattered around the scene
+	UStaticMesh* SmallSphere = LoadObject<UStaticMesh>(nullptr,
+		TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+	UMaterialInterface* WhiteMat = LoadObject<UMaterialInterface>(nullptr,
+		TEXT("/Game/NASA/Spacecraft/Landsat8/Materials/LDCM-white-fl.LDCM-white-fl"));
+
+	if (SmallSphere)
+	{
+		FRandomStream RNG(42);
+		for (int32 i = 0; i < 200; ++i)
+		{
+			FVector Dir(RNG.FRandRange(-1.0f, 1.0f), RNG.FRandRange(-1.0f, 1.0f), RNG.FRandRange(-1.0f, 1.0f));
+			Dir.Normalize();
+			const float Dist = RNG.FRandRange(3000.0f, 8000.0f);
+			const float Size = RNG.FRandRange(0.02f, 0.08f);
+
+			FName Name(*FString::Printf(TEXT("Star_%d"), i));
+			auto* Star = NewObject<UStaticMeshComponent>(this, Name);
+			Star->SetupAttachment(SceneRoot);
+			Star->RegisterComponent();
+			Star->SetStaticMesh(SmallSphere);
+			Star->SetRelativeLocation(Dir * Dist);
+			Star->SetWorldScale3D(FVector(Size));
+			Star->SetCollisionProfileName(TEXT("NoCollision"));
+			if (WhiteMat) Star->SetMaterial(0, WhiteMat);
+		}
+	}
 }
 
 void AAstralisOrbitSceneActor::InitializeFromAssembly(
@@ -187,6 +258,12 @@ void AAstralisOrbitSceneActor::Tick(float DeltaTime)
 		}
 	}
 
+	// Clear maneuver flag once SimEngine has consumed it
+	if (bManeuverActive && !SimEngine.HasPendingManeuver())
+	{
+		bManeuverActive = false;
+	}
+
 	// Update spacecraft visual position
 	const FSpacecraftState& State = SimEngine.GetState();
 	const FVector SCUE = SimToUE(State.Orbital.Position_m);
@@ -207,6 +284,36 @@ void AAstralisOrbitSceneActor::Tick(float DeltaTime)
 
 	DrawTrail();
 
+	// Draw predicted orbit ellipse
+	{
+		UWorld* OrbWorld = GetWorld();
+		const FVector3d& Pos = State.Orbital.Position_m;
+		const FVector3d& Vel = State.Orbital.Velocity_mps;
+		const double R_orbit = Pos.Size();
+		const double V_orbit = Vel.Size();
+		const double Mu = 3.986004418e14;
+		const double E_orbit = 0.5 * V_orbit * V_orbit - Mu / R_orbit;
+		if (OrbWorld && E_orbit < 0.0)
+		{
+			const double a_orbit = -Mu / (2.0 * E_orbit);
+			const double h_orb = R_orbit * V_orbit;
+			const double ecc = FMath::Sqrt(FMath::Max(0.0, 1.0 + 2.0 * E_orbit * h_orb * h_orb / (Mu * Mu)));
+			const int32 NumSegs = 120;
+			for (int32 i = 0; i < NumSegs; ++i)
+			{
+				const double theta1 = 2.0 * PI * i / NumSegs;
+				const double theta2 = 2.0 * PI * (i + 1) / NumSegs;
+				const double r1 = a_orbit * (1.0 - ecc * ecc) / (1.0 + ecc * FMath::Cos(theta1));
+				const double r2 = a_orbit * (1.0 - ecc * ecc) / (1.0 + ecc * FMath::Cos(theta2));
+				const FVector3d P1(r1 * FMath::Cos(theta1), r1 * FMath::Sin(theta1), 0.0);
+				const FVector3d P2(r2 * FMath::Cos(theta2), r2 * FMath::Sin(theta2), 0.0);
+				DrawDebugLine(OrbWorld, GetActorLocation() + SimToUE(P1),
+					GetActorLocation() + SimToUE(P2),
+					FColor(80, 200, 100, 180), false, -1.0f, 0, 1.0f);
+			}
+		}
+	}
+
 	// Slowly rotate Earth (sidereal day = 86164s)
 	if (EarthMesh)
 	{
@@ -214,6 +321,8 @@ void AAstralisOrbitSceneActor::Tick(float DeltaTime)
 		const double RotDeg = RotRate * SimDt;
 		EarthMesh->AddLocalRotation(FRotator(0.0, RotDeg, 0.0));
 	}
+
+	// Telemetry display handled by AAstralisAssemblyHUD::DrawOrbitHUD
 }
 
 FVector AAstralisOrbitSceneActor::SimToUE(const FVector3d& Position_m) const
@@ -245,7 +354,7 @@ void AAstralisOrbitSceneActor::DrawTrail() const
 			continue;
 
 		DrawDebugLine(World, TrailPoints_UE[Idx0], TrailPoints_UE[Idx1],
-			TrailColor, false, -1.0f, 0, 0.3f);
+			TrailColor, false, -1.0f, 0, 2.0f);
 	}
 }
 
@@ -294,4 +403,84 @@ FString AAstralisOrbitSceneActor::GetTimeWarpLabel() const
 	if (Scale >= 1.0)
 		return FString::Printf(TEXT("%.0fx"), Scale);
 	return FString::Printf(TEXT("%.2fx"), Scale);
+}
+
+void AAstralisOrbitSceneActor::ExecutePrograde(double DeltaV_mps)
+{
+	const FSpacecraftState& S = SimEngine.GetState();
+	FVector3d Dir = S.Orbital.Velocity_mps;
+	if (Dir.Normalize())
+	{
+		SimEngine.RequestManeuver(Dir * DeltaV_mps);
+		ManeuverDV_mps = DeltaV_mps;
+		bManeuverActive = true;
+		ManeuverLabel = TEXT("PROGRADE");
+	}
+}
+
+void AAstralisOrbitSceneActor::ExecuteRetrograde(double DeltaV_mps)
+{
+	const FSpacecraftState& S = SimEngine.GetState();
+	FVector3d Dir = S.Orbital.Velocity_mps;
+	if (Dir.Normalize())
+	{
+		SimEngine.RequestManeuver(-Dir * DeltaV_mps);
+		ManeuverDV_mps = DeltaV_mps;
+		bManeuverActive = true;
+		ManeuverLabel = TEXT("RETROGRADE");
+	}
+}
+
+void AAstralisOrbitSceneActor::ExecuteNormal(double DeltaV_mps)
+{
+	const FSpacecraftState& S = SimEngine.GetState();
+	FVector3d NDir = FVector3d::CrossProduct(S.Orbital.Position_m, S.Orbital.Velocity_mps).GetSafeNormal();
+	if (!NDir.IsNearlyZero())
+	{
+		SimEngine.RequestManeuver(NDir * DeltaV_mps);
+		ManeuverDV_mps = DeltaV_mps;
+		bManeuverActive = true;
+		ManeuverLabel = TEXT("NORMAL");
+	}
+}
+
+void AAstralisOrbitSceneActor::ExecuteAntiNormal(double DeltaV_mps)
+{
+	const FSpacecraftState& S = SimEngine.GetState();
+	FVector3d NDir = FVector3d::CrossProduct(S.Orbital.Position_m, S.Orbital.Velocity_mps).GetSafeNormal();
+	if (!NDir.IsNearlyZero())
+	{
+		SimEngine.RequestManeuver(-NDir * DeltaV_mps);
+		ManeuverDV_mps = DeltaV_mps;
+		bManeuverActive = true;
+		ManeuverLabel = TEXT("ANTI-NORMAL");
+	}
+}
+
+void AAstralisOrbitSceneActor::ExecuteRadialIn(double DeltaV_mps)
+{
+	const FSpacecraftState& S = SimEngine.GetState();
+	FVector3d Normal = FVector3d::CrossProduct(S.Orbital.Position_m, S.Orbital.Velocity_mps).GetSafeNormal();
+	FVector3d Radial = FVector3d::CrossProduct(S.Orbital.Velocity_mps, Normal).GetSafeNormal();
+	if (!Radial.IsNearlyZero())
+	{
+		SimEngine.RequestManeuver(-Radial * DeltaV_mps);
+		ManeuverDV_mps = DeltaV_mps;
+		bManeuverActive = true;
+		ManeuverLabel = TEXT("RADIAL IN");
+	}
+}
+
+void AAstralisOrbitSceneActor::ExecuteRadialOut(double DeltaV_mps)
+{
+	const FSpacecraftState& S = SimEngine.GetState();
+	FVector3d Normal = FVector3d::CrossProduct(S.Orbital.Position_m, S.Orbital.Velocity_mps).GetSafeNormal();
+	FVector3d Radial = FVector3d::CrossProduct(S.Orbital.Velocity_mps, Normal).GetSafeNormal();
+	if (!Radial.IsNearlyZero())
+	{
+		SimEngine.RequestManeuver(Radial * DeltaV_mps);
+		ManeuverDV_mps = DeltaV_mps;
+		bManeuverActive = true;
+		ManeuverLabel = TEXT("RADIAL OUT");
+	}
 }

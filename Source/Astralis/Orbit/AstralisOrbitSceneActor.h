@@ -34,6 +34,21 @@ public:
 	bool IsPaused() const;
 	FString GetTimeWarpLabel() const;
 
+	const FSpacecraftState& GetSpacecraftState() const { return SimEngine.GetState(); }
+	double GetEarthRadius_m() const { return EarthRadius_m; }
+
+	// Orbital maneuvers
+	void ExecutePrograde(double DeltaV_mps);
+	void ExecuteRetrograde(double DeltaV_mps);
+	void ExecuteNormal(double DeltaV_mps);
+	void ExecuteAntiNormal(double DeltaV_mps);
+	void ExecuteRadialIn(double DeltaV_mps);
+	void ExecuteRadialOut(double DeltaV_mps);
+
+	double GetManeuverDV() const { return ManeuverDV_mps; }
+	bool IsManeuverActive() const { return bManeuverActive; }
+	FString GetManeuverLabel() const { return ManeuverLabel; }
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UStaticMeshComponent> EarthMesh;
 
@@ -62,7 +77,7 @@ private:
 	// Scale: SI metres to UE centimetres for orbit view
 	// 1 km = 1 cm → scale = 1e-5 (m to cm via /1000 for km, then * 1 for cm = 1e-3 * 1e-2 = 1e-5)
 	// Actually: Position_m * ScaleFactor = UE_cm
-	static constexpr double OrbitScale = 1.0e-5;
+	static constexpr double OrbitScale = 1.0e-4;
 	static constexpr double EarthRadius_m = 6.371e6;
 
 	FVector SimToUE(const FVector3d& Position_m) const;
@@ -74,4 +89,9 @@ private:
 	int32 TimeWarpIndex = 3; // Start at 1x
 
 	bool bInitialized = false;
+
+	// Maneuver state
+	double ManeuverDV_mps = 0.0;
+	bool bManeuverActive = false;
+	FString ManeuverLabel;
 };

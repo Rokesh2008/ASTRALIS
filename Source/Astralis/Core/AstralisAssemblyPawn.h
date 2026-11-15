@@ -30,20 +30,38 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UCameraComponent> Camera;
 
+	// Snap the orbit camera to look at Target from Distance, at the given yaw/pitch
+	void FocusOn(const FVector& Target, float Distance, float Yaw, float Pitch);
+
+	// Move the focus point without touching the player's chosen angle/zoom
+	void SetFocusPoint(const FVector& Target);
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float MinZoomDistance = 100.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-	float MaxZoomDistance = 5000.0f;
+	float MaxZoomDistance = 50000.0f;
 
+	// Fraction of current distance per scroll notch
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-	float ZoomSpeed = 50.0f;
+	float ZoomStep = 0.12f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float OrbitSpeed = 2.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float PanSpeed = 5.0f;
+
+	// Launch vibration
+	float ShakeIntensity = 0.0f;
+	float ShakeTimer = 0.0f;
+	void SetShakeIntensity(float Intensity) { ShakeIntensity = Intensity; }
+
+	// Camera mode
+	enum class ECameraMode : uint8 { Tracking, Close, Wide };
+	ECameraMode CameraMode = ECameraMode::Tracking;
+	void CycleCameraMode();
+	FString GetCameraModeString() const;
 
 private:
 	void OnZoomIn();

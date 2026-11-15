@@ -66,9 +66,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Assembly")
 	double SnapRadius_m = 0.3;
 
+public:
 	AAstralisAssemblyGameMode* GetAssemblyGameMode() const;
 
-public:
 	void OnPhaseChanged(EAstralisGamePhase NewPhase);
 
 private:
@@ -77,4 +77,56 @@ private:
 	void OnTimeWarpUp();
 	void OnTimeWarpDown();
 	void OnPauseToggle();
+	void OnEngineSwapToggle();
+	void OnSwapStageToggle();
+	void OnSwapEngine1();
+	void OnSwapEngine2();
+	void OnSwapEngine3();
+	void OnSwapEngine4();
+	void OnSwapEngine5();
+	void OnSwapEngine6();
+	void OnSwapEngine7();
+	void OnSwapEngine8();
+
+	// Vehicle / mission selection
+	void OnVehicleNext();
+	void OnVehiclePrev();
+	void OnMissionNext();
+	void OnMissionPrev();
+
+	void OnDeorbitBurn();
+
+	// Orbit maneuvers
+	void OnManeuverPrograde();
+	void OnManeuverRetrograde();
+	void OnManeuverNormal();
+	void OnManeuverAntiNormal();
+	void OnManeuverRadialIn();
+	void OnManeuverRadialOut();
+
+	// Throttle control
+	void OnThrottleUp();
+	void OnThrottleDown();
+
+	// Launch abort
+	void OnAbortLaunch();
+
+	// Camera mode
+	void OnCycleCamera();
+
+	// Spacecraft design
+	void OnBusNext();
+	void OnBusPrev();
+	void OnInstrument1();
+	void OnInstrument2();
+	void OnInstrument3();
+	void OnInstrument4();
+	void OnInstrument5();
+	void OnInstrument6();
+	void OnInstrument7();
+	void OnInstrument8();
+	void OnInstrument9();
+	void OnInstrument10();
+
+	float ViewModeFixTimer = 5.0f;
 };
